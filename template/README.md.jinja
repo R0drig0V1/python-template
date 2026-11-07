@@ -26,6 +26,7 @@ uv run pre-commit install    # optional: ruff on every commit
 | pytest + coverage (branch, >= 80%) | regressions, untested code | `scripts/check.sh`, CI |
 | zizmor, actionlint | insecure or broken GitHub workflows | `quality.yml` |
 | gitleaks | secrets committed anywhere in the history | `quality.yml` |
+| pip-audit | known vulnerabilities in any `uv.lock` package (also weekly) | `quality.yml` |
 {%- if visibility == "public" %}
 | CodeQL (Python, Actions) | security vulnerabilities (Security tab) | `codeql.yml` |
 | OpenSSF Scorecard | supply-chain posture (score only) | `scorecard.yml` |
@@ -37,22 +38,21 @@ Lower them only with a reason in the same pull request.
 
 ## After creating the GitHub repository
 
-These are repository settings, not files; enable the ones you want:
+Some protections are repository settings, not files. Turn them on once (needs `gh` as an
+admin; `--dry-run` prints the calls):
 
 ```bash
-REPO={{ github_owner }}/{{ project_slug }}
-gh api -X PUT repos/$REPO/vulnerability-alerts          # Dependabot alerts
-gh api -X PUT repos/$REPO/automated-security-fixes      # Dependabot security updates
-gh api -X PUT repos/$REPO/actions/permissions -F enabled=true -f allowed_actions=all -F sha_pinning_required=true
-{%- if visibility == "public" %}
-gh api -X PUT repos/$REPO/private-vulnerability-reporting   # SECURITY.md relies on it
-# Secret scanning and push protection are on by default for public repositories.
-# Keep CodeQL *default* setup off: codeql.yml is the advanced setup.
-{%- else %}
-# Secret scanning, push protection and CodeQL need paid GitHub Advanced Security on private
-# repositories; gitleaks (quality.yml) covers committed secrets.
-{%- endif %}
+scripts/setup-github.sh
 ```
+
+It enables Dependabot alerts and security updates and requires actions pinned to a commit SHA
+{%- if visibility == "public" %}, and private vulnerability reporting (SECURITY.md relies on
+it). Secret scanning and push protection are on by default for public repositories; keep
+CodeQL *default* setup off (`codeql.yml` is the advanced setup).
+{%- else %}. Secret scanning, push protection and CodeQL need paid GitHub Advanced Security on
+private repositories; gitleaks and pip-audit in `quality.yml` cover committed secrets and
+vulnerable dependencies instead.
+{%- endif %}
 
 ## Updating from the template
 

@@ -13,19 +13,20 @@ Requires [uv](https://docs.astral.sh/uv/) and access to this (private) repositor
 (`gh auth setup-git`, or SSH).
 
 ```bash
-uvx copier copy gh:R0drig0V1/python-template my-project
+uvx copier@9.19.1 copy gh:R0drig0V1/python-template my-project
 ```
 
 Copier asks for the project name, package name, description, author, GitHub owner, Python
 version (3.12, 3.13 by default, 3.14), visibility (private by default) and license (MIT or
 proprietary). Then it prints the next steps: `git init`, `uv sync`, `scripts/check.sh`, first
-commit.
+commit, and, once the GitHub repository exists, `scripts/setup-github.sh`. Copier is pinned in
+these commands so that generating a project never runs an unreviewed release.
 
 To bring later template improvements (new checks, newer pinned actions) into an existing
 project, run this in a clean working tree:
 
 ```bash
-uvx copier update
+uvx copier@9.19.1 update
 ```
 
 ## What a generated project gets
@@ -35,16 +36,47 @@ uvx copier update
 | Python | `pyproject.toml` (src layout, `uv_build`), `.python-version`, `src/<package>/` with `py.typed`, `tests/` |
 | Quality | ruff `E,F,W,I,B,UP,S,SIM,RUF,C90` (mccabe <= 10), ruff format, mypy strict, pytest + branch coverage >= 80% |
 | One command | `scripts/check.sh`: everything CI checks; CI runs exactly this script |
-| CI | `ci.yml` (check.sh), `quality.yml` (zizmor, actionlint, gitleaks over the whole history) |
+| CI | `ci.yml` (check.sh), `quality.yml` (zizmor, actionlint, gitleaks over the whole history, pip-audit of `uv.lock`, also weekly) |
 | Public only | `codeql.yml` (Python, Actions), `scorecard.yml` (OpenSSF), MIT `LICENSE`, SECURITY.md with private vulnerability reporting |
 | Maintenance | `dependabot.yml` (uv weekly, actions monthly, grouped, 7-day cooldown), pre-commit with ruff, PR/issue templates |
-| Settings | README lists the `gh api` commands for the repository settings (Dependabot alerts, SHA pinning...) |
+| Settings | `scripts/setup-github.sh`: Dependabot alerts and security updates, SHA-pinned actions, private vulnerability reporting (public) |
 
 Every workflow has least-privilege `permissions:` and `persist-credentials: false`, and pins
 its actions by commit SHA. Downloaded binaries are checked against a sha256.
 
 CodeQL, Scorecard, secret scanning and push protection are free only on public repositories;
 on private ones gitleaks covers committed secrets.
+
+## Security defaults
+
+What a generated project does so it does not invite vulnerabilities:
+
+- **Dependencies:**
+  - every package is locked with sha256 hashes in `uv.lock`, and CI installs with `--locked`;
+  - pip-audit fails CI on a known vulnerability and re-checks weekly;
+  - Dependabot proposes updates with a 7-day cooldown;
+  - `setup-github.sh` turns on Dependabot alerts and security fixes.
+- **Code:** ruff's Bandit rules (`S`) and mypy strict run in `scripts/check.sh`. Public projects
+  also get CodeQL.
+- **Secrets:**
+  - gitleaks scans the whole history on every PR;
+  - `.env` and `.env.*` are git-ignored, except `.env.example`;
+  - no workflow uses a secret.
+- **Workflows:**
+  - top-level `permissions: {}` or `contents: read`, with each job granted only what it needs;
+  - only `pull_request` triggers, never `pull_request_target`;
+  - `persist-credentials: false`;
+  - actions pinned by commit SHA (and required to be, through `setup-github.sh`);
+  - downloaded binaries checked by sha256;
+  - zizmor and actionlint gate every change.
+- **Generation:** the template has no Copier `_tasks`, so it runs no code on your machine.
+  Free-text answers are escaped (`tojson`) where they land in TOML and are kept out of Python
+  source; names are validated.
+
+What it cannot do by itself:
+- Branch protection or rulesets on `main`. Add them if several people push.
+- On private repositories, GitHub secret scanning, push protection and CodeQL, which need paid
+  GitHub Advanced Security.
 
 ## Maintenance
 
@@ -59,7 +91,8 @@ on private ones gitleaks covers committed secrets.
   - `uv_build`;
   - the actionlint and gitleaks versions and sha256 in the quality workflows;
   - the `version:` inputs of `setup-uv` and `zizmor-action`;
-  - `copier==` in `test-template.yml`.
+  - `copier@` / `copier==` in this README and in `test-template.yml`;
+  - `pip-audit@` in `template/.github/workflows/quality.yml`.
 
   Prefer releases at least 7 days old.
 

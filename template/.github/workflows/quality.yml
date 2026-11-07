@@ -1,11 +1,15 @@
-# Workflow security (zizmor, actionlint) and committed secrets (gitleaks over the full
-# history). Every job fails on findings.
+# Workflow security (zizmor, actionlint), committed secrets (gitleaks over the full history)
+# and known vulnerabilities in the locked dependencies (pip-audit). Every job fails on
+# findings. The weekly run catches vulnerabilities published after the last change (GitHub
+# disables schedules in repositories without activity for 60 days).
 name: Quality
 
 on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "23 6 * * 1" # weekly
 
 permissions: {}
 
@@ -44,6 +48,31 @@ jobs:
           echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/$tarball" | sha256sum --check --strict
           tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -color
+
+  dependencies:
+    name: Dependencies (pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.6"
+          enable-cache: false
+
+      # Every package of uv.lock (runtime and dev), pinned with hashes, checked against the
+      # PyPI / OSV advisory database without installing anything.
+      - name: pip-audit
+        run: |
+          uv export --locked --no-emit-project --format requirements-txt \
+            --output-file "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit@2.10.1 --disable-pip --progress-spinner off \
+            --requirement "$RUNNER_TEMP/requirements.txt"
 
   secrets:
     name: Secrets (gitleaks)

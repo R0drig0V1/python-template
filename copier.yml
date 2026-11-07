@@ -42,11 +42,19 @@ author_email:
   type: str
   help: Author email for pyproject.toml (leave empty to omit it)
   default: ""
+  validator: >-
+    {% if author_email and not (author_email | regex_search('^[^@\\s]+@[^@\\s]+$')) %}
+    an email address, or empty
+    {% endif %}
 
 github_owner:
   type: str
   help: GitHub user or organization that will own the repository
   default: R0drig0V1
+  validator: >-
+    {% if not (github_owner | regex_search('^[A-Za-z0-9](-?[A-Za-z0-9])*$')) %}
+    a GitHub user or organization name (letters, digits, single dashes)
+    {% endif %}
 
 python_version:
   type: str
@@ -78,4 +86,5 @@ _message_after_copy: |
     uv run pre-commit install    # optional: run ruff before each commit
     git add -A && git commit -m "chore: initial project from python-template"
 
-  Then follow "After creating the GitHub repository" in README.md.
+  After creating the GitHub repository, run scripts/setup-github.sh once (README.md,
+  "After creating the GitHub repository").

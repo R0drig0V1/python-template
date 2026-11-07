@@ -1,7 +1,7 @@
 [project]
 name = "{{ project_slug }}"
 version = "0.1.0"
-description = "{{ description }}"
+description = {{ description | tojson }}
 readme = "README.md"
 requires-python = ">={{ python_version }}"
 {%- if license == "MIT" %}
@@ -9,7 +9,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 {%- endif %}
 authors = [
-    { name = "{{ author_name }}"{% if author_email %}, email = "{{ author_email }}"{% endif %} },
+    { name = {{ author_name | tojson }}{% if author_email %}, email = {{ author_email | tojson }}{% endif %} },
 ]
 dependencies = []
 

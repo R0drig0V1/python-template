@@ -59,6 +59,18 @@ jobs:
           uv sync
           scripts/check.sh
 
+      - name: pip-audit of the generated uv.lock
+        working-directory: ${{ runner.temp }}/demo
+        run: |
+          uv export --locked --no-emit-project --format requirements-txt \
+            --output-file "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit@2.10.1 --disable-pip --progress-spinner off \
+            --requirement "$RUNNER_TEMP/requirements.txt"
+
+      - name: ShellCheck the generated scripts
+        working-directory: ${{ runner.temp }}/demo
+        run: shellcheck -S warning scripts/*.sh
+
       - name: Expected files for the visibility
         working-directory: ${{ runner.temp }}/demo
         env:
