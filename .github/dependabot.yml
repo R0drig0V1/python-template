@@ -1,0 +1,19 @@
+# Dependabot for the template repository: the actions pinned by SHA in this repository's
+# workflows and in the generated project's workflows (template/.github/workflows), so new
+# projects start with current, pinned actions. The Python tool versions in
+# template/pyproject.toml.jinja are lower bounds bumped by hand (README.md, "Maintenance").
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directories: ["/", "/template"]
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci

@@ -1,0 +1,60 @@
+[project]
+name = "{{ project_slug }}"
+version = "0.1.0"
+description = "{{ description }}"
+readme = "README.md"
+requires-python = ">={{ python_version }}"
+{%- if license == "MIT" %}
+license = "MIT"
+license-files = ["LICENSE"]
+{%- endif %}
+authors = [
+    { name = "{{ author_name }}"{% if author_email %}, email = "{{ author_email }}"{% endif %} },
+]
+dependencies = []
+
+[dependency-groups]
+# Development tools, pinned exactly by uv.lock and updated by Dependabot.
+dev = [
+    "ruff>=0.17.3",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "pre-commit>=4.7.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py{{ python_version | replace('.', '') }}"
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort, bugbear, pyupgrade, flake8-bandit (security), simplify, ruff
+# and mccabe complexity.
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF", "C90"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"] # pytest asserts
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.mypy]
+python_version = "{{ python_version }}"
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--cov", "--cov-report=term-missing"]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true

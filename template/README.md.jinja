@@ -1,0 +1,73 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Development
+
+Requires [uv](https://docs.astral.sh/uv/). uv installs the Python of `.python-version`
+({{ python_version }}) and the exact tool versions of `uv.lock`.
+
+```bash
+uv sync                      # create .venv with the project and its dev tools
+scripts/check.sh             # everything CI checks: ruff, ruff format, mypy, pytest + coverage
+uv run ruff format . && uv run ruff check --fix .   # fix formatting and most lint findings
+uv run pre-commit install    # optional: ruff on every commit
+```
+
+`scripts/check.sh` is the single definition of "green": CI runs exactly that script.
+
+## Checks
+
+| Check | What it catches | Where |
+|---|---|---|
+| ruff (`E,F,W,I,B,UP,S,SIM,RUF,C90`) | bugs, imports, outdated syntax, Bandit security rules, complexity > 10 | `scripts/check.sh`, CI |
+| ruff format | formatting | `scripts/check.sh`, CI |
+| mypy `strict` | type errors in `src/` and `tests/` | `scripts/check.sh`, CI |
+| pytest + coverage (branch, >= 80%) | regressions, untested code | `scripts/check.sh`, CI |
+| zizmor, actionlint | insecure or broken GitHub workflows | `quality.yml` |
+| gitleaks | secrets committed anywhere in the history | `quality.yml` |
+{%- if visibility == "public" %}
+| CodeQL (Python, Actions) | security vulnerabilities (Security tab) | `codeql.yml` |
+| OpenSSF Scorecard | supply-chain posture (score only) | `scorecard.yml` |
+{%- endif %}
+| Dependabot | outdated dependencies and actions (7-day cooldown) | `dependabot.yml` |
+
+Thresholds live in `pyproject.toml` (`[tool.ruff.lint.mccabe]`, `[tool.coverage.report]`).
+Lower them only with a reason in the same pull request.
+
+## After creating the GitHub repository
+
+These are repository settings, not files; enable the ones you want:
+
+```bash
+REPO={{ github_owner }}/{{ project_slug }}
+gh api -X PUT repos/$REPO/vulnerability-alerts          # Dependabot alerts
+gh api -X PUT repos/$REPO/automated-security-fixes      # Dependabot security updates
+gh api -X PUT repos/$REPO/actions/permissions -F enabled=true -f allowed_actions=all -F sha_pinning_required=true
+{%- if visibility == "public" %}
+gh api -X PUT repos/$REPO/private-vulnerability-reporting   # SECURITY.md relies on it
+# Secret scanning and push protection are on by default for public repositories.
+# Keep CodeQL *default* setup off: codeql.yml is the advanced setup.
+{%- else %}
+# Secret scanning, push protection and CodeQL need paid GitHub Advanced Security on private
+# repositories; gitleaks (quality.yml) covers committed secrets.
+{%- endif %}
+```
+
+## Updating from the template
+
+Generated from [python-template](https://github.com/R0drig0V1/python-template) with Copier.
+`uvx copier update` (on a clean working tree) brings later template changes (new checks,
+newer pinned actions) and asks before overwriting what you changed.
+
+## Manual bumps
+
+Dependabot updates `uv.lock` and the actions. By hand: the actionlint and gitleaks versions
+and sha256 in `.github/workflows/quality.yml` (from each release's checksums file), and the
+`version:` inputs of `setup-uv` and `zizmor-action`.
+{%- if license == "MIT" %}
+
+## License
+
+[MIT](LICENSE).
+{%- endif %}

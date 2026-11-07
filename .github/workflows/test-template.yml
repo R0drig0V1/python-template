@@ -1,0 +1,117 @@
+# Tests the template itself: generates a public and a private project with Copier and runs
+# everything the generated project's CI would run (scripts/check.sh, actionlint, zizmor), so a
+# broken template never reaches a new project. Also lints this repository's own workflows.
+name: Test template
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    name: Generate and check (${{ matrix.visibility }}, Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        visibility: [private, public]
+        python: ["3.13"]
+        include:
+          - visibility: private
+            python: "3.12"
+          - visibility: private
+            python: "3.14"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # Copier reads the template from git
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.6"
+          enable-cache: false
+
+      - name: Generate a project
+        env:
+          VISIBILITY: ${{ matrix.visibility }}
+          PYTHON: ${{ matrix.python }}
+        run: |
+          uvx copier==9.19.1 copy --defaults --vcs-ref HEAD \
+            --data project_name="Demo App" --data author_name="CI" \
+            --data visibility="$VISIBILITY" --data python_version="$PYTHON" \
+            . "$RUNNER_TEMP/demo"
+
+      - name: uv sync and scripts/check.sh in the generated project
+        working-directory: ${{ runner.temp }}/demo
+        run: |
+          git init -q -b main
+          uv sync
+          scripts/check.sh
+
+      - name: Expected files for the visibility
+        working-directory: ${{ runner.temp }}/demo
+        env:
+          VISIBILITY: ${{ matrix.visibility }}
+        run: |
+          for f in .github/workflows/codeql.yml .github/workflows/scorecard.yml LICENSE; do
+            if [ "$VISIBILITY" = public ]; then test -f "$f"; else test ! -e "$f"; fi
+          done
+
+      - name: actionlint on the generated workflows
+        working-directory: ${{ runner.temp }}/demo
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          tarball="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSLo "$RUNNER_TEMP/$tarball" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$tarball"
+          echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/$tarball" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+
+      - name: zizmor on the generated workflows (offline)
+        working-directory: ${{ runner.temp }}/demo
+        run: uvx --python 3.12 zizmor==1.31.1 --offline .github/workflows
+
+  workflows:
+    name: This repository's workflows (zizmor, actionlint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # zizmor on private repositories
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: zizmor
+        uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
+        with:
+          version: "1.31.1"
+          advanced-security: false
+          inputs: .github/workflows
+
+      - name: actionlint
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          tarball="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSLo "$RUNNER_TEMP/$tarball" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$tarball"
+          echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/$tarball" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color

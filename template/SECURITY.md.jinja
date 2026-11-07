@@ -1,0 +1,18 @@
+# Security policy
+
+## Reporting a vulnerability
+
+Please do not open a public issue for a vulnerability.
+{%- if visibility == "public" %}
+Report it privately through GitHub: **Security** tab → **Report a vulnerability**
+(https://github.com/{{ github_owner }}/{{ project_slug }}/security/advisories/new).
+{%- else %}
+Contact the maintainers privately (repository owner: `{{ github_owner }}` on GitHub).
+{%- endif %}
+
+Include what you found, how to reproduce it, the version or commit, and its impact. You will
+get a first answer within a week.
+
+## Supported versions
+
+Only the latest release on `main` is supported.

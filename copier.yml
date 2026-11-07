@@ -1,0 +1,81 @@
+# Copier template for a new Python project (README.md). Generate one with:
+#   uvx copier copy --vcs-ref <tag-or-HEAD> gh:R0drig0V1/python-template <dir>
+# and later pull template improvements with `uvx copier update` inside it.
+
+_min_copier_version: "9.4"
+_subdirectory: template
+_answers_file: .copier-answers.yml
+
+project_name:
+  type: str
+  help: Human-readable project name
+  validator: "{% if not project_name.strip() %}required{% endif %}"
+
+project_slug:
+  type: str
+  help: Distribution and repository name (lowercase, digits and dashes)
+  default: "{{ project_name.strip().lower().replace(' ', '-').replace('_', '-') }}"
+  validator: >-
+    {% if not (project_slug | regex_search('^[a-z][a-z0-9]*(-[a-z0-9]+)*$')) %}
+    lowercase letters, digits and single dashes, starting with a letter
+    {% endif %}
+
+package_name:
+  type: str
+  help: Importable Python package name
+  default: "{{ project_slug.replace('-', '_') }}"
+  validator: >-
+    {% if not (package_name | regex_search('^[a-z][a-z0-9_]*$')) %}
+    a valid lowercase Python identifier
+    {% endif %}
+
+description:
+  type: str
+  help: One-line description
+  default: ""
+
+author_name:
+  type: str
+  help: Author name (pyproject.toml, LICENSE)
+
+author_email:
+  type: str
+  help: Author email for pyproject.toml (leave empty to omit it)
+  default: ""
+
+github_owner:
+  type: str
+  help: GitHub user or organization that will own the repository
+  default: R0drig0V1
+
+python_version:
+  type: str
+  help: Minimum (and development) Python version
+  choices: ["3.12", "3.13", "3.14"]
+  default: "3.13"
+
+visibility:
+  type: str
+  help: >-
+    Repository visibility. Public adds CodeQL and OpenSSF Scorecard, which are free only on
+    public repositories, and a SECURITY.md that uses private vulnerability reporting.
+  choices: [private, public]
+  default: private
+
+license:
+  type: str
+  help: License
+  choices: [MIT, Proprietary]
+  default: "{{ 'MIT' if visibility == 'public' else 'Proprietary' }}"
+
+_message_after_copy: |
+  Project "{{ project_name }}" created. Next:
+
+    cd {{ _copier_conf.dst_path }}
+    git init -b main
+    uv sync                      # creates .venv and uv.lock (commit it)
+    scripts/check.sh             # ruff, mypy, pytest: must pass
+    uv run pre-commit install    # optional: run ruff before each commit
+    git add -A && git commit -m "chore: initial project from python-template"
+
+  Then follow "After creating the GitHub repository" in README.md.
